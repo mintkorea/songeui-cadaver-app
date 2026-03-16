@@ -8,6 +8,8 @@ st.markdown("""
     <style>
     html, body, [class*="st-"] { font-size: 1.05rem; }
     .stButton>button { width: 100%; height: 3.5rem; border-radius: 10px; font-weight: bold; }
+    /* 관계 선택용 작은 버튼 스타일 */
+    .relation-btn>div>button { height: 3rem !important; margin-bottom: 5px !important; font-size: 0.9rem !important; }
     .status-box { 
         background-color: #262730; padding: 15px; border-radius: 10px; 
         border: 1px solid #464b5d; margin-bottom: 20px; color: #ffffff;
@@ -36,13 +38,13 @@ def addr_search_js():
 
 st.title("🚨 시신기증 야간 접수")
 
-# --- [로직 핵심] 세션 상태 및 날짜 연동 관리 ---
+# --- 세션 상태 관리 ---
 today = datetime.now().date()
-
 if 'd_date' not in st.session_state: st.session_state.d_date = today
 if 'b_date' not in st.session_state: st.session_state.b_date = today + timedelta(days=2)
+if 'relation' not in st.session_state: st.session_state.relation = "선택안됨"
 
-# 2. 고인 정보 섹션
+# 1. 고인 정보
 with st.expander("👤 1. 고인 정보", expanded=True):
     name = st.text_input("고인 성함")
     gender = st.radio("성별", ["남성", "여성"], horizontal=True)
@@ -52,14 +54,12 @@ with st.expander("👤 1. 고인 정보", expanded=True):
     with d_col1:
         if st.button("어제"): 
             st.session_state.d_date = today - timedelta(days=1)
-            # 사망일 변경 시 발인일도 현재 간격 유지하며 이동 (선택사항)
             st.rerun()
     with d_col2:
         if st.button("오늘"): 
             st.session_state.d_date = today
             st.rerun()
     
-    # 위젯 값을 세션 상태와 연결
     death_date = st.date_input("날짜 확인", value=st.session_state.d_date)
     st.session_state.d_date = death_date
 
@@ -67,12 +67,11 @@ with st.expander("👤 1. 고인 정보", expanded=True):
     with t_col1: ampm = st.radio("구분", ["오전", "오후"], horizontal=True)
     with t_col2: death_time = st.time_input("시간", label_visibility="collapsed")
 
-# 3. 장례 일정 섹션
+# 2. 장례 일정 및 장소
 with st.expander("📅 2. 장례 일정 및 발인", expanded=True):
     is_immediate = st.toggle("즉시 모심 (장례 없음)")
     
     if not is_immediate:
-        # 요약 박스 계산
         cur_d = st.session_state.d_date
         cur_b = st.session_state.b_date
         calc_days = (cur_b - cur_d).days + 1
@@ -85,23 +84,18 @@ with st.expander("📅 2. 장례 일정 및 발인", expanded=True):
         </div>
         """, unsafe_allow_html=True)
 
-        st.write("장례 기간 선택 (누르면 발인일 자동 변경)")
+        st.write("장례 기간 선택")
         d_opts = st.columns(3)
         with d_opts[0]:
             if st.button("2일장"): 
-                st.session_state.b_date = st.session_state.d_date + timedelta(days=1)
-                st.rerun()
+                st.session_state.b_date = st.session_state.d_date + timedelta(days=1); st.rerun()
         with d_opts[1]:
             if st.button("3일장"): 
-                st.session_state.b_date = st.session_state.d_date + timedelta(days=2)
-                st.rerun()
+                st.session_state.b_date = st.session_state.d_date + timedelta(days=2); st.rerun()
         with d_opts[2]:
             if st.button("4일장"): 
-                st.session_state.b_date = st.session_state.d_date + timedelta(days=3)
-                st.rerun()
+                st.session_state.b_date = st.session_state.d_date + timedelta(days=3); st.rerun()
         
-        st.write("또는 발인일 직접 선택")
-        # 발인일 수동 선택 시 세션 업데이트
         burn_date = st.date_input("발인날짜 직접지정", value=st.session_state.b_date)
         st.session_state.b_date = burn_date
 
@@ -113,13 +107,25 @@ with st.expander("📅 2. 장례 일정 및 발인", expanded=True):
     components.html(addr_search_js(), height=65)
     pickup_place = st.text_input("상세 주소 입력", placeholder="건물명이나 상세 주소 입력")
 
-# 4. 유가족 정보
+# 3. 유가족 정보 (관계 버튼 나열)
 with st.expander("📞 3. 유가족 정보", expanded=True):
     u_name = st.text_input("유가족 성함")
-    u_relation = st.selectbox("고인과의 관계", ["자(아들)", "녀(딸)", "배우자", "부모", "형(오빠)", "제(남동생)", "누나(언니)", "매(여동생)", "기타"])
+    
+    st.write(f"고인과의 관계: **{st.session_state.relation}**")
+    
+    # 관계 버튼 레이아웃 (3열 배치)
+    rel_cols = st.columns(3)
+    relations = ["자(아들)", "녀(딸)", "배우자", "부모", "형(오빠)", "제(남동생)", "누나(언니)", "매(여동생)", "기타"]
+    
+    for i, rel in enumerate(relations):
+        with rel_cols[i % 3]:
+            if st.button(rel, key=f"rel_{rel}"):
+                st.session_state.relation = rel
+                st.rerun()
+                
     u_phone = st.text_input("유가족 연락처", placeholder="010-0000-0000")
 
-# 5. 최종 보고
+# 4. 최종 보고
 st.divider()
 captured_img = st.camera_input("📸 접수증 촬영")
 
@@ -133,11 +139,11 @@ summary = f"""[야간접수 보고]
 사망: {st.session_state.d_date.strftime('%m/%d')} {ampm} {death_time.strftime('%H:%M')}
 장례: {final_jangrae}
 모시러 갈 곳: {pickup_place}
-보호자: {u_name}({u_relation}) / {u_phone}"""
+보호자: {u_name}({st.session_state.relation}) / {u_phone}"""
 
 if st.button("🚀 김보라 선임에게 보고 데이터 생성"):
-    if not name or not u_phone or captured_img is None:
-        st.error("성함, 연락처, 접수증 사진은 필수입니다.")
+    if not name or not u_phone or st.session_state.relation == "선택안됨":
+        st.error("고인 성함, 보호자 연락처, 관계 선택은 필수입니다.")
     else:
         st.success("데이터 구성 완료!")
         st.code(summary)
