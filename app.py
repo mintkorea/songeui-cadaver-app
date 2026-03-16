@@ -42,11 +42,10 @@ def addr_search_js():
 
 st.title("🚨 시신기증 야간 접수")
 
-# 세션 상태 초기화
+# --- 세션 상태 초기화 및 관리 ---
 today = datetime.now().date()
 if 'death_date' not in st.session_state: st.session_state['death_date'] = today
 if 'burn_date' not in st.session_state: st.session_state['burn_date'] = today + timedelta(days=2)
-if 'days_val' not in st.session_state: st.session_state['days_val'] = "3일장"
 
 # 2. 고인 정보 섹션
 with st.expander("👤 1. 고인 정보", expanded=True):
@@ -56,54 +55,59 @@ with st.expander("👤 1. 고인 정보", expanded=True):
     st.write("사망일자")
     d_col1, d_col2 = st.columns(2)
     with d_col1:
-        if st.button("어제"): st.session_state['death_date'] = today - timedelta(days=1)
+        if st.button("어제"): 
+            st.session_state['death_date'] = today - timedelta(days=1)
+            st.rerun()
     with d_col2:
-        if st.button("오늘"): st.session_state['death_date'] = today
+        if st.button("오늘"): 
+            st.session_state['death_date'] = today
+            st.rerun()
     
-    death_date = st.date_input("날짜 확인", value=st.session_state['death_date'])
-    st.session_state['death_date'] = death_date # 수동 변경 반영
+    death_date = st.date_input("날짜 확인", value=st.session_state['death_date'], key="d_input")
+    st.session_state['death_date'] = death_date
 
     t_col1, t_col2 = st.columns([1, 2])
     with t_col1: ampm = st.radio("구분", ["오전", "오후"], horizontal=True)
     with t_col2: death_time = st.time_input("시간", label_visibility="collapsed")
 
-# 3. 장례 일정 섹션 (연동 로직 포함)
+# 3. 장례 일정 섹션
 with st.expander("📅 2. 장례 일정 및 발인", expanded=True):
     is_immediate = st.toggle("즉시 모심 (장례 없음)")
     
+    calc_days = 0 # 초기화
     if not is_immediate:
-        # 상단 요약 표시
-        burn_date = st.session_state['burn_date']
-        calc_days = (burn_date - death_date).days + 1
+        # 날짜 차이 계산 안전하게 처리
+        d_date = st.session_state['death_date']
+        b_date = st.session_state['burn_date']
+        calc_days = (b_date - d_date).days + 1
         
         st.markdown(f"""
         <div class="status-box">
             <b>[일정 확인]</b><br>
-            사망일: {death_date.strftime('%m/%d')} ({['월','화','수','목','금','토','일'][death_date.weekday()]})<br>
-            발인일: {burn_date.strftime('%m/%d')} ({['월','화','수','목','금','토','일'][burn_date.weekday()]})<br>
+            사망일: {d_date.strftime('%m/%d')} ({['월','화','수','목','금','토','일'][d_date.weekday()]})<br>
+            발인일: {b_date.strftime('%m/%d')} ({['월','화','수','목','금','토','일'][b_date.weekday()]})<br>
             <b>현재 {calc_days}일장 설정됨</b>
         </div>
         """, unsafe_allow_html=True)
 
-        # 장례일자 선택 시 -> 발인일 자동 변경
         st.write("장례 기간 선택")
-        day_opts = ["2일장", "3일장", "4일장", "기타"]
-        selected_day = st.radio("장례 기간", day_opts, index=day_opts.index(st.session_state['days_val']) if st.session_state['days_val'] in day_opts else 1, horizontal=True)
+        d_opts = st.columns(3)
+        with d_opts[0]:
+            if st.button("2일장"): 
+                st.session_state['burn_date'] = d_date + timedelta(days=1)
+                st.rerun()
+        with d_opts[1]:
+            if st.button("3일장"): 
+                st.session_state['burn_date'] = d_date + timedelta(days=2)
+                st.rerun()
+        with d_opts[2]:
+            if st.button("4일장"): 
+                st.session_state['burn_date'] = d_date + timedelta(days=3)
+                st.rerun()
         
-        if selected_day == "2일장": st.session_state['burn_date'] = death_date + timedelta(days=1)
-        elif selected_day == "3일장": st.session_state['burn_date'] = death_date + timedelta(days=2)
-        elif selected_day == "4일장": st.session_state['burn_date'] = death_date + timedelta(days=3)
-        
-        # 발인 예정일 선택 시 -> 장례 기간 자동 계산
         st.write("또는 발인일 직접 선택")
-        b_col1, b_col2, b_col3 = st.columns(3)
-        with b_col1:
-            if st.button("내일"): st.session_state['burn_date'] = death_date + timedelta(days=1)
-        with b_col2:
-            if st.button("모레"): st.session_state['burn_date'] = death_date + timedelta(days=2)
-        with b_col3:
-            new_burn_date = st.date_input("직접", value=st.session_state['burn_date'], label_visibility="collapsed")
-            st.session_state['burn_date'] = new_burn_date
+        new_burn_date = st.date_input("발인날짜", value=st.session_state['burn_date'], key="b_input")
+        st.session_state['burn_date'] = new_burn_date
 
         bt_col1, bt_col2 = st.columns([1, 2])
         with bt_col1: burn_ampm = st.radio("발인 구분", ["오전", "오후"], horizontal=True)
@@ -123,10 +127,16 @@ with st.expander("📞 3. 유가족 정보", expanded=True):
 st.divider()
 captured_img = st.camera_input("📸 접수증 촬영 (필수)")
 
+# 보고용 서머리 생성
+if is_immediate:
+    jangrae_info = "즉시모심"
+else:
+    jangrae_info = f"{calc_days}일장(발인: {st.session_state['burn_date'].strftime('%m/%d')} {burn_ampm} {burn_time.strftime('%H:%M')})"
+
 summary = f"""[야간접수 보고]
 고인: {name}({gender})
-사망: {death_date.strftime('%m/%d')} {ampm} {death_time.strftime('%H:%M')}
-장례: {"즉시모심" if is_immediate else f"{calc_days}일장(발인: {st.session_state['burn_date'].strftime('%m/%d')} {burn_ampm} {burn_time.strftime('%H:%M')})"}
+사망: {st.session_state['death_date'].strftime('%m/%d')} {ampm} {death_time.strftime('%H:%M')}
+장례: {jangrae_info}
 모시러 갈 곳: {pickup_place}
 보호자: {u_name}({u_relation}) / {u_phone}"""
 
