@@ -9,11 +9,8 @@ st.markdown("""
     html, body, [class*="st-"] { font-size: 1.05rem; }
     .stButton>button { width: 100%; height: 3.5rem; border-radius: 10px; font-weight: bold; }
     .status-box { 
-        background-color: #262730; 
-        padding: 15px; 
-        border-radius: 10px; 
-        border: 1px solid #464b5d;
-        margin-bottom: 20px;
+        background-color: #262730; padding: 15px; border-radius: 10px; 
+        border: 1px solid #464b5d; margin-bottom: 20px; color: #ffffff;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -27,10 +24,7 @@ def addr_search_js():
             new daum.Postcode({
                 oncomplete: function(data) {
                     const addr = data.roadAddress || data.address;
-                    window.parent.postMessage({
-                        type: 'address_selected',
-                        address: addr
-                    }, '*');
+                    window.parent.postMessage({ type: 'address_selected', address: addr }, '*');
                 }
             }).open();
         }
@@ -42,10 +36,11 @@ def addr_search_js():
 
 st.title("🚨 시신기증 야간 접수")
 
-# --- 세션 상태 초기화 및 관리 ---
+# --- [로직 핵심] 세션 상태 및 날짜 연동 관리 ---
 today = datetime.now().date()
-if 'death_date' not in st.session_state: st.session_state['death_date'] = today
-if 'burn_date' not in st.session_state: st.session_state['burn_date'] = today + timedelta(days=2)
+
+if 'd_date' not in st.session_state: st.session_state.d_date = today
+if 'b_date' not in st.session_state: st.session_state.b_date = today + timedelta(days=2)
 
 # 2. 고인 정보 섹션
 with st.expander("👤 1. 고인 정보", expanded=True):
@@ -56,15 +51,17 @@ with st.expander("👤 1. 고인 정보", expanded=True):
     d_col1, d_col2 = st.columns(2)
     with d_col1:
         if st.button("어제"): 
-            st.session_state['death_date'] = today - timedelta(days=1)
+            st.session_state.d_date = today - timedelta(days=1)
+            # 사망일 변경 시 발인일도 현재 간격 유지하며 이동 (선택사항)
             st.rerun()
     with d_col2:
         if st.button("오늘"): 
-            st.session_state['death_date'] = today
+            st.session_state.d_date = today
             st.rerun()
     
-    death_date = st.date_input("날짜 확인", value=st.session_state['death_date'], key="d_input")
-    st.session_state['death_date'] = death_date
+    # 위젯 값을 세션 상태와 연결
+    death_date = st.date_input("날짜 확인", value=st.session_state.d_date)
+    st.session_state.d_date = death_date
 
     t_col1, t_col2 = st.columns([1, 2])
     with t_col1: ampm = st.radio("구분", ["오전", "오후"], horizontal=True)
@@ -74,40 +71,39 @@ with st.expander("👤 1. 고인 정보", expanded=True):
 with st.expander("📅 2. 장례 일정 및 발인", expanded=True):
     is_immediate = st.toggle("즉시 모심 (장례 없음)")
     
-    calc_days = 0 # 초기화
     if not is_immediate:
-        # 날짜 차이 계산 안전하게 처리
-        d_date = st.session_state['death_date']
-        b_date = st.session_state['burn_date']
-        calc_days = (b_date - d_date).days + 1
+        # 요약 박스 계산
+        cur_d = st.session_state.d_date
+        cur_b = st.session_state.b_date
+        calc_days = (cur_b - cur_d).days + 1
         
         st.markdown(f"""
         <div class="status-box">
             <b>[일정 확인]</b><br>
-            사망일: {d_date.strftime('%m/%d')} ({['월','화','수','목','금','토','일'][d_date.weekday()]})<br>
-            발인일: {b_date.strftime('%m/%d')} ({['월','화','수','목','금','토','일'][b_date.weekday()]})<br>
+            사망일: {cur_d.strftime('%m/%d')} | 발인일: {cur_b.strftime('%m/%d')}<br>
             <b>현재 {calc_days}일장 설정됨</b>
         </div>
         """, unsafe_allow_html=True)
 
-        st.write("장례 기간 선택")
+        st.write("장례 기간 선택 (누르면 발인일 자동 변경)")
         d_opts = st.columns(3)
         with d_opts[0]:
             if st.button("2일장"): 
-                st.session_state['burn_date'] = d_date + timedelta(days=1)
+                st.session_state.b_date = st.session_state.d_date + timedelta(days=1)
                 st.rerun()
         with d_opts[1]:
             if st.button("3일장"): 
-                st.session_state['burn_date'] = d_date + timedelta(days=2)
+                st.session_state.b_date = st.session_state.d_date + timedelta(days=2)
                 st.rerun()
         with d_opts[2]:
             if st.button("4일장"): 
-                st.session_state['burn_date'] = d_date + timedelta(days=3)
+                st.session_state.b_date = st.session_state.d_date + timedelta(days=3)
                 st.rerun()
         
         st.write("또는 발인일 직접 선택")
-        new_burn_date = st.date_input("발인날짜", value=st.session_state['burn_date'], key="b_input")
-        st.session_state['burn_date'] = new_burn_date
+        # 발인일 수동 선택 시 세션 업데이트
+        burn_date = st.date_input("발인날짜 직접지정", value=st.session_state.b_date)
+        st.session_state.b_date = burn_date
 
         bt_col1, bt_col2 = st.columns([1, 2])
         with bt_col1: burn_ampm = st.radio("발인 구분", ["오전", "오후"], horizontal=True)
@@ -115,7 +111,7 @@ with st.expander("📅 2. 장례 일정 및 발인", expanded=True):
 
     st.write("🚚 모시러 갈 장소")
     components.html(addr_search_js(), height=65)
-    pickup_place = st.text_input("검색된 주소 / 상세 호수", placeholder="건물명이나 상세 주소 입력")
+    pickup_place = st.text_input("상세 주소 입력", placeholder="건물명이나 상세 주소 입력")
 
 # 4. 유가족 정보
 with st.expander("📞 3. 유가족 정보", expanded=True):
@@ -123,26 +119,25 @@ with st.expander("📞 3. 유가족 정보", expanded=True):
     u_relation = st.selectbox("고인과의 관계", ["자(아들)", "녀(딸)", "배우자", "부모", "형(오빠)", "제(남동생)", "누나(언니)", "매(여동생)", "기타"])
     u_phone = st.text_input("유가족 연락처", placeholder="010-0000-0000")
 
-# 5. 사진 촬영 및 보고
+# 5. 최종 보고
 st.divider()
-captured_img = st.camera_input("📸 접수증 촬영 (필수)")
+captured_img = st.camera_input("📸 접수증 촬영")
 
-# 보고용 서머리 생성
 if is_immediate:
-    jangrae_info = "즉시모심"
+    final_jangrae = "즉시모심"
 else:
-    jangrae_info = f"{calc_days}일장(발인: {st.session_state['burn_date'].strftime('%m/%d')} {burn_ampm} {burn_time.strftime('%H:%M')})"
+    final_jangrae = f"{calc_days}일장(발인: {st.session_state.b_date.strftime('%m/%d')} {burn_ampm} {burn_time.strftime('%H:%M')})"
 
 summary = f"""[야간접수 보고]
 고인: {name}({gender})
-사망: {st.session_state['death_date'].strftime('%m/%d')} {ampm} {death_time.strftime('%H:%M')}
-장례: {jangrae_info}
+사망: {st.session_state.d_date.strftime('%m/%d')} {ampm} {death_time.strftime('%H:%M')}
+장례: {final_jangrae}
 모시러 갈 곳: {pickup_place}
 보호자: {u_name}({u_relation}) / {u_phone}"""
 
 if st.button("🚀 김보라 선임에게 보고 데이터 생성"):
-    if not name or not u_phone or not pickup_place or captured_img is None:
-        st.error("성함, 모시러 갈 장소, 연락처, 접수증 사진은 필수입니다.")
+    if not name or not u_phone or captured_img is None:
+        st.error("성함, 연락처, 접수증 사진은 필수입니다.")
     else:
         st.success("데이터 구성 완료!")
         st.code(summary)
