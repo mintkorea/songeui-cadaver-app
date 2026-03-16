@@ -30,10 +30,9 @@ with date_col2:
     if st.button(f"오늘\n({today.strftime('%m/%d')})"):
         st.session_state['death_date'] = today
 with date_col3:
-    # 기본값 설정
     if 'death_date' not in st.session_state:
         st.session_state['death_date'] = today
-    death_date = st.date_input("날짜 직접선택", value=st.session_state['death_date'])
+    death_date = st.date_input("사망날짜 확인", value=st.session_state['death_date'])
 
 time_col1, time_col2 = st.columns(2)
 with time_col1:
@@ -41,22 +40,12 @@ with time_col1:
 with time_col2:
     death_time = st.time_input("시간 선택")
 
-death_place = st.text_input("사망 장소", placeholder="병원명/장례식장 호실")
-
-# 구분선 (파이썬 코드용)
-st.divider()
-
-# 3. 유가족 정보 섹션
-st.subheader("2. 유가족(신고인) 정보")
-u_name = st.text_input("유가족 성함")
-u_relation = st.selectbox("고인과의 관계", 
-    ["자(아들)", "녀(딸)", "배우자", "부모", "형(오빠)", "제(남동생)", "누나(언니)", "매(여동생)", "기타"])
-u_phone = st.text_input("유가족 연락처", placeholder="010-0000-0000")
+death_place = st.text_input("사망 장소", placeholder="사망하신 병원 또는 장소")
 
 st.divider()
 
-# 4. 장례 일정 섹션
-st.subheader("3. 장례 일정")
+# 3. 장례 일정 섹션 (유가족 정보보다 위로 이동)
+st.subheader("2. 장례 일정")
 is_immediate = st.toggle("즉시 모심 (장례 없음)")
 
 if not is_immediate:
@@ -85,6 +74,18 @@ if not is_immediate:
     burn_time_ampm = st.radio("발인 시간 구분", ["오전", "오후"], horizontal=True, key="bt_ampm")
     burn_time = st.time_input("발인 시각")
 
+# 모시러 갈 장소 (운구차 방문 주소)
+pickup_place = st.text_input("🚚 모시러 갈 장소 (건물명/주소)", placeholder="운구차가 방문할 정확한 주소 또는 건물명")
+
+st.divider()
+
+# 4. 유가족 정보 섹션
+st.subheader("3. 유가족(신고인) 정보")
+u_name = st.text_input("유가족 성함")
+u_relation = st.selectbox("고인과의 관계", 
+    ["자(아들)", "녀(딸)", "배우자", "부모", "형(오빠)", "제(남동생)", "누나(언니)", "매(여동생)", "기타"])
+u_phone = st.text_input("유가족 연락처", placeholder="010-0000-0000")
+
 st.divider()
 
 # 5. 사진 촬영 및 보고
@@ -95,14 +96,15 @@ summary = f"""[야간접수 보고]
 고인: {name}({gender}) / 등록: {reg_num if reg_num else '확인불가'}
 사망: {death_date.strftime('%m/%d')} {ampm} {death_time.strftime('%H:%M')}
 장례: {"즉시모심" if is_immediate else f"{days}(발인: {burn_date.strftime('%m/%d')} {burn_time_ampm} {burn_time.strftime('%H:%M')})"}
+모시러 갈 곳: {pickup_place}
 보호자: {u_name}({u_relation}) / {u_phone}
-장소: {death_place}"""
+사망장소: {death_place}"""
 
-st.text_area("보고 내용 요약", summary, height=180)
+st.text_area("보고 내용 요약", summary, height=200)
 
 if st.button("🚀 김보라 선임에게 보고 데이터 생성"):
-    if not name or not u_phone or captured_img is None:
-        st.error("고인 성함, 보호자 연락처, 접수증 사진은 필수입니다.")
+    if not name or not u_phone or captured_img is None or not pickup_place:
+        st.error("고인 성함, 모시러 갈 장소, 보호자 연락처, 접수증 사진은 필수입니다.")
     else:
         st.success("데이터 구성 완료! 위 내용을 복사하여 문자로 전송하세요.")
         st.code(summary)
