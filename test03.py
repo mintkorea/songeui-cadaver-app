@@ -3,7 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # -----------------------------
-# AI 설정 (최신 방식)
+# AI 설정 (안전 처리)
 # -----------------------------
 try:
     from openai import OpenAI
@@ -78,29 +78,61 @@ case = st.radio(
 # -----------------------------
 st.subheader("🧠 자동 대응")
 
+# -----------------------------
+# 즉시모심 (🔥 핵심 강화)
+# -----------------------------
 if case == "즉시모심":
-    st.success("✅ 즉시 접수 진행")
-    st.info(f"""
+
+    if is_night:
+        st.error("🚨 야간 즉시모심 (긴급)")
+
+        st.info("""
+✔ 즉시 조치
+- 위치 확보 (가장 중요)
 - 사체검안서 확인
-- 위치 확인
 - 연락처 확보
 
+✔ 멘트
 "즉시 모실 수 있도록 접수 진행하겠습니다."
 
-{'⚠ 야간: 기본 접수 후 담당자 전달' if is_night else ''}
-""")
+⚠ 필수 조치
+- 담당자에게 즉시 전달
+- 지연 금지
+        """)
 
+    else:
+        st.success("✅ 즉시 접수 진행")
+
+        st.info("""
+✔ 확인 사항
+- 사체검안서
+- 위치
+- 연락처
+
+✔ 멘트
+"즉시 모실 수 있도록 접수 진행하겠습니다."
+        """)
+
+# -----------------------------
+# 장례 진행
+# -----------------------------
 elif case == "장례 진행":
     st.success("✅ 장례 후 인계 진행")
-    st.info(f"""
-- 장례식장 확인
-- 발인 시간 확인
 
+    st.info(f"""
+✔ 확인 사항
+- 장례식장
+- 발인 시간
+
+✔ 멘트
 "발인 시점에 시신 인계가 진행됩니다."
 
-{'⚠ 야간: 일정만 확인 후 주간 안내' if is_night else ''}
-""")
+{'⚠ 야간: 일정만 확인 후 담당자 전달' if is_night else ''}
+    """)
 
+# -----------------------------
+# 장례 미정 (🔥 질문 방어 + AI)
+# -----------------------------
 elif case == "장례 미정":
 
     st.error("⚠ 장례 절차 미정 → 접수 유보")
@@ -108,15 +140,15 @@ elif case == "장례 미정":
     st.info("""
 장례 절차 확정 후 접수 진행이 가능합니다.
 
-필요 사항:
+✔ 필요 사항
 - 사체검안서
 - 장례식장 결정
 """)
 
     # -----------------------------
-    # 질문 버튼
+    # 빠른 질문 대응
     # -----------------------------
-    st.subheader("❓ 빠른 질문 대응")
+    st.subheader("❓ 빠른 대응")
 
     col1, col2, col3 = st.columns(3)
 
@@ -140,6 +172,7 @@ elif case == "장례 미정":
     if col6.button("가족 동의"):
         st.code("유가족 동의 필요합니다.\n→ 협의 후 연락 부탁드립니다.")
 
+    # 종료 멘트
     if st.button("🚨 종료 멘트"):
         st.code("""
 현재 장례 절차가 확정되지 않아 접수 진행이 어렵습니다.
@@ -152,7 +185,7 @@ elif case == "장례 미정":
     st.subheader("🤖 AI 자동 응답")
 
     if not AI_AVAILABLE:
-        st.warning("⚠ AI 기능 사용 불가 (openai 미설치 또는 API 키 없음)")
+        st.warning("⚠ AI 기능 비활성화 (openai 설치 또는 API 키 필요)")
     else:
         question = st.text_input("질문 입력")
 
@@ -181,10 +214,7 @@ elif case == "장례 미정":
                 try:
                     answer = generate_ai(question)
                     st.success(answer)
-
-                    # 복사용
                     st.text_area("복사용", answer, height=120)
-
                 except Exception as e:
                     st.error(f"AI 오류: {e}")
 
